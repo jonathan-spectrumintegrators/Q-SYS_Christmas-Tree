@@ -5,6 +5,8 @@ Shows LED feedback of controls referenced during runtime by Component ID and con
 Boolean-type controls show the current state, and trigger-type controls show feedback for
 a specified period of time after an event occurs.
 
+![Usage Example](https://github.com/user-attachments/assets/039f1353-3cb7-4353-a6d7-97b5e83b0df0)
+
 ## Requirements
 Requires Q-SYS Designer version 9.10 or newer.
 
