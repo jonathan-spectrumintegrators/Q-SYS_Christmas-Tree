@@ -49,4 +49,4 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
-(see _LICENSE.txt_ for full license)
+(see the _LICENSE_ file for full license details)
