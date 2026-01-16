@@ -33,7 +33,11 @@ Other controls will set the LED based on the control's Boolean value. See the Q-
 what the Boolean property is for controls that aren't on/off (such as text fields and knobs).
 
 If a component or control referenced doesn't exist or is inaccessible, the LED for that line will be marked
-as indeterminate (or if no name is specified)
+as indeterminate (or if no name is specified).
+
+Input pins may be used as well to show the state of a wired or pin-named signal. The first LED shows the
+Boolean state, the second LED is lit for the Trigger Feedback Time duration whenever the input changes
+or is triggered.
 
 ]]--
 
@@ -49,8 +53,8 @@ DebugLevelAll = DebugLevels[4] -- Prints both function call notifications and de
 --[[ PLUGIN DATA ]] --
 PluginInfo = {
     Name = "Christmas Tree",
-    Version = "1.0",
-    BuildVersion = "1.0.0.0",
+    Version = "1.1",
+    BuildVersion = "1.1.0.0",
     Id = "a3656542-f05f-467a-ac24-9a49b243a1fc",
     Author = "Jonathan Dean (Spectrum Integrators jonathand@spectrumintegrators.com)",
     Description = "Control state feedback",
@@ -136,12 +140,20 @@ function GetProperties()
         Comment = "Debug verbosity level"
     })
     table.insert(props, {
-        Name = "Count",
+        Name = "Named Count",
         Type = "integer",
-        Min = 1,
+        Min = 2,
         Max = 100,
         Value = 5,
-        Comment = "The number of controls to monitor"
+        Comment = "The number of controls to monitor by name"
+    })
+    table.insert(props, {
+        Name = "Pin Count",
+        Type = "integer",
+        Min = 2,
+        Max = 100,
+        Value = 5,
+        Comment = "The number of controls to monitor from pins"
     })
     table.insert(props, {
         Name = "Trigger Feedback Time",
@@ -194,14 +206,29 @@ function GetControls(props)
     table.insert(ctrls, {
         Name = "ID",
         ControlType = "Text",
-        Count = tonumber(props["Count"].Value),
+        Count = tonumber(props["Named Count"].Value),
         UserPin = false
     })
     table.insert(ctrls, {
-        Name = "State",
+        Name = "Named State",
         ControlType = "Indicator",
         IndicatorType = "LED",
-        Count = tonumber(props["Count"].Value),
+        Count = tonumber(props["Named Count"].Value),
+        UserPin = false
+    })
+    table.insert(ctrls, {
+        Name = "Pin State",
+        ControlType = "Indicator",
+        IndicatorType = "LED",
+        Count = tonumber(props["Pin Count"].Value),
+        UserPin = true,
+        PinStyle = "Input"
+    })
+    table.insert(ctrls, {
+        Name = "Pin Triggered",
+        ControlType = "Indicator",
+        IndicatorType = "LED",
+        Count = tonumber(props["Pin Count"].Value),
         UserPin = false
     })
     return ctrls
@@ -221,7 +248,7 @@ function GetControlLayout(props)
     local ledSize = 16
 
     if CurrentPage == "Controls" then
-        for i = 1, tonumber(props["Count"].Value) do
+        for i = 1, tonumber(props["Named Count"].Value) do
             table.insert(graphics, {
                 Type = "Text",
                 Text = string.format("% 4d:", i),
@@ -233,12 +260,32 @@ function GetControlLayout(props)
                 Position = {margin + labelWidth + 2 * gapSize, margin + (rowHeight + gapSize) * (i - 1)},
                 Size = {textBoxWidth, rowHeight}
             }
-            layout["State " .. tostring(i)] = {
+            layout["Named State " .. tostring(i)] = {
                 Style = "Led",
                 Position = {margin + labelWidth + textBoxWidth + 3 * gapSize, margin + (rowHeight + gapSize) * (i - 1)},
                 Size = {ledSize, ledSize}
             }
+        end
 
+        local pinLEDYStart = (rowHeight + gapSize) * tonumber(props["Named Count"].Value)
+
+        for i=1, tonumber(props["Pin Count"].Value) do
+            table.insert(graphics, {
+                Type = "Text",
+                Text = string.format("% 4d:", i),
+                Position = {margin, margin + pinLEDYStart + (rowHeight + gapSize) * (i - 1)},
+                Size = {labelWidth, rowHeight}
+            })
+            layout["Pin State " .. tostring(i)] = {
+                Style = "Led",
+                Position = {margin + labelWidth + 2 * gapSize, margin + pinLEDYStart + (rowHeight + gapSize) * (i - 1)},
+                Size = {ledSize, ledSize}
+            }
+            layout["Pin Triggered " .. tostring(i)] = {
+                Style = "Led",
+                Position = {margin + labelWidth + ledSize + 3 * gapSize , margin + pinLEDYStart + (rowHeight + gapSize) * (i - 1)},
+                Size = {ledSize, ledSize}
+            }
         end
     end
 
@@ -261,9 +308,9 @@ triggerControls = "Trigger;Text;Enum;Array"
 -- Sets the LED on and then turns it off after a specified timeout period
 function TriggerHandler(i, componentname, controlname, ctl)
     FUNC("TriggerHandler", i, componentname, controlname)
-    Controls["State"][i].Boolean = true
+    Controls["Named State"][i].Boolean = true
     Timer.CallAfter(function()
-        Controls["State"][i].Boolean = false
+        Controls["Named State"][i].Boolean = false
     end, tonumber(Properties["Trigger Feedback Time"].Value))
 end
 
@@ -271,7 +318,7 @@ end
 -- Sets the LED based on the Boolean property (the meaning of which depends on the type of control)
 function ValueHandler(i, componentname, controlname, ctl)
     FUNC("ValueHandler", i, componentname, controlname, ctl.Boolean)
-    Controls["State"][i].Boolean = ctl.Boolean
+    Controls["Named State"][i].Boolean = ctl.Boolean
 end
 
 -- Split the given string on the first period character and return both the left and right halves
@@ -284,6 +331,12 @@ function SplitControlName(ctlname)
     end
 end
 
+function PinHandler(i, ctl)
+    FUNC("PinHandler", i, ctl.Boolean)
+    Controls["Pin Triggered"][i].Boolean = true
+    Timer.CallAfter(function() Controls["Pin Triggered"][i].Boolean = false end, tonumber(Properties["Trigger Feedback Time"].Value))
+end
+
 function ConnectToControls()
     FUNC("ConnectToControls")
     -- first, disconnect any existing event handlers, clear the list, and turn off the LEDs
@@ -293,14 +346,14 @@ function ConnectToControls()
         end
     end
     connectedControls = {}
-    for i = 1, tonumber(Properties["Count"].Value) do
+    for i = 1, tonumber(Properties["Named Count"].Value) do
         -- we set these to false because we need the elements to be non-nil for ipairs to work
         connectedControls[i] = false
-        Controls["State"][i].Boolean = false
-        Controls["State"][i].IsIndeterminate = true --Set them all as indeterminate by default
+        Controls["Named State"][i].Boolean = false
+        Controls["Named State"][i].IsIndeterminate = true --Set them all as indeterminate by default
     end
 
-    for i = 1, tonumber(Properties["Count"].Value) do
+    for i = 1, tonumber(Properties["Named Count"].Value) do
         -- the i here is not only the control index but it's also the index into the connectedControls array
         ctlID = Controls["ID"][i]
 
@@ -344,16 +397,23 @@ function ConnectToControls()
                 TriggerHandler(i, componentname, controlname, ctl)
             end
         else
-            Controls["State"][i].Boolean = ctl.Boolean
+            Controls["Named State"][i].Boolean = ctl.Boolean
             DBG(string.format("Adding value handler to %s", ctlID.String))
             ctl.EventHandler = function()
                 ValueHandler(i, componentname, controlname, ctl)
             end
         end
         
-        Controls["State"][i].IsIndeterminate = false --If we got here, we know everything is OK and we can mark the control as real
+        Controls["Named State"][i].IsIndeterminate = false --If we got here, we know everything is OK and we can mark the control as real
 
         ::nextloop:: -- goto label for when a loop needs to be continued early
+    end
+
+    -- Attach event handlers to all of the pin inputs
+    for i = 1, tonumber(Properties["Pin Count"].Value) do
+        Controls["Pin State"][i].EventHandler = function(ctl)
+            PinHandler(i, ctl)
+        end
     end
 end
 
@@ -362,7 +422,7 @@ for i, ctl in pairs(Controls["ID"]) do
     ctl.EventHandler = ConnectToControls
 end
 
--- Do all the stuff when the script furst runs
+-- Do all the stuff when the script first runs
 ConnectToControls()
 
 ::nocontrols::

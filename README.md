@@ -1,7 +1,8 @@
 # Control state feedback plugin (Christmas tree)
 
 ## Description
-Shows LED feedback of controls referenced during runtime by Component ID and control name.
+Shows LED feedback of controls referenced during runtime by Component ID and control name
+or by input pin.
 Boolean-type controls show the current state, and trigger-type controls show feedback for
 a specified period of time after an event occurs.
 
@@ -32,6 +33,11 @@ Trigger-style controls will turn the associated LED on for a brief period then o
 Other controls will set the LED feedback based on the control's `Boolean` value. Knobs, meters, faders, etc. are supported but they are not the intended use-case for this tool. See the [Q-SYS help](https://q-syshelp.qsc.com/#Control_Scripting/Using_Lua_in_Q-Sys/Controls_IO.htm) to learn more about what the `Boolean` property is for controls that aren't simply on/off. 
 
 If a component or control referenced doesn't exist or is inaccessible, the LED for that line will be marked as indeterminate (or if no name is specified). This allows for quick determination if the component and control name entered are valid.
+
+Input pins may be used as well to show the state of a wired or pin-named signal. The first LED shows the Boolean state, the second LED is lit for the Trigger Feedback Time duration whenever the input changes or is triggered.
+
+## Known Issues
+* Number of inputs has to be 2 or more because if it's 1 then the control names don't have numbers and I can't be bothered to add logic handling that right now.
 
 ## License
 ```
